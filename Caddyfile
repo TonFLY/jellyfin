@@ -1,0 +1,56 @@
+###############################################################################
+# CADDYFILE - Configuração do Reverse Proxy
+#
+# Domínio: jellyfin.tonfly.cloud
+# 
+# IMPORTANTE: 
+# 1. Substitua EMAIL_SSL pelo seu email real
+# 2. O DNS deve estar configurado ANTES de iniciar o Caddy
+# 3. O certificado SSL é gerado automaticamente pelo Let's Encrypt
+###############################################################################
+
+# Configurações globais
+{
+    # Email para registro no Let's Encrypt (OBRIGATÓRIO)
+    # Substitua pelo seu email real
+    email contato.wellingtonm@gmail.com
+    
+    # Aceita os termos do Let's Encrypt automaticamente
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory  # Descomente para testes
+}
+
+# Configuração do domínio jellyfin.tonfly.cloud
+jellyfin.tonfly.cloud {
+    # Proxy reverso para o container Jellyfin
+    # "jellyfin" é o nome do serviço no docker-compose
+    # 8096 é a porta interna do Jellyfin
+    reverse_proxy jellyfin:8096 {
+        # Headers para compatibilidade com Jellyfin
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        
+        # Flush para streaming de vídeo
+        flush_interval -1
+    }
+    
+    # Headers de segurança
+    header {
+        # Protege contra clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Protege contra XSS
+        X-Content-Type-Options "nosniff"
+        # Remove header do servidor
+        -Server
+    }
+    
+    # Compressão para melhor performance
+    encode gzip zstd
+    
+    # Logs de acesso (opcional - descomente para debug)
+    # log {
+    #     output file /var/log/caddy/jellyfin.log
+    #     format json
+    # }
+}

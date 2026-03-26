@@ -1,0 +1,76 @@
+###############################################################################
+# JELLYFIN + CADDY - DOCKER COMPOSE
+# 
+# Descrição: Configuração completa para rodar Jellyfin com HTTPS automático
+# Domínio: jellyfin.tonfly.cloud
+# 
+# IMPORTANTE: Substitua EMAIL_SSL pelo seu email real antes de usar
+###############################################################################
+
+version: "3.9"
+
+services:
+  #############################################################################
+  # JELLYFIN - Servidor de Mídia
+  # 
+  # - NÃO expõe porta externa (segurança)
+  # - Acessível apenas via rede interna do Docker
+  # - Caddy faz proxy reverso para este serviço
+  #############################################################################
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    # SEM ports: expostos externamente (Caddy faz o proxy)
+    environment:
+      - PUID=1000                    # ID do usuário (ajuste se necessário)
+      - PGID=1000                    # ID do grupo (ajuste se necessário)
+      - TZ=America/Sao_Paulo         # Fuso horário Brasil
+    volumes:
+      - ./config:/config             # Configurações do Jellyfin
+      - ./cache:/cache               # Cache para transcodificação
+      - /opt/jellyfin/media:/media:ro # Mídia do Google Drive (somente leitura)
+    networks:
+      - jellyfin_network
+    # Healthcheck para verificar se o Jellyfin está respondendo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  #############################################################################
+  # CADDY - Reverse Proxy com HTTPS Automático
+  # 
+  # - Única porta exposta para internet (80 e 443)
+  # - Gera certificados SSL automaticamente via Let's Encrypt
+  # - Redireciona HTTP para HTTPS
+  # - Faz proxy para Jellyfin na rede interna
+  #############################################################################
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"                      # HTTP (redirect para HTTPS)
+      - "443:443"                    # HTTPS (acesso principal)
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro  # Configuração do Caddy
+      - ./caddy_data:/data           # Certificados SSL (persistente!)
+      - ./caddy_config:/config       # Configurações do Caddy
+    networks:
+      - jellyfin_network
+    depends_on:
+      - jellyfin
+
+#############################################################################
+# REDE INTERNA
+# 
+# - Comunicação segura entre containers
+# - Jellyfin não é acessível diretamente da internet
+# - Apenas Caddy pode se comunicar com Jellyfin
+#############################################################################
+networks:
+  jellyfin_network:
+    driver: bridge
+    name: jellyfin_network

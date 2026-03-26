@@ -1,0 +1,16 @@
+# Dados locais (não commitar)
+config/
+cache/
+media/
+caddy_data/
+caddy_config/
+
+# Logs
+*.log
+
+# Variáveis de ambiente
+.env
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
